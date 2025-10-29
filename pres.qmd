@@ -197,12 +197,6 @@ format:
   - Nos permite seleccionar qué registros del periodo analizado (coyuntura) es importante revisar.
 :::
 
-<!-- ::: {.r-stack fragment-index=2 .center}
-
-![](imagenes/monitoring/example_sample_revision_202401.png){.fragment width="90%"}
-
-::: -->
-
 
 
 ## [Model monitoring | Metrics | Definition]{.big-par}
