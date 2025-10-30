@@ -6,7 +6,7 @@ format:
     width: 2650      # ancho lógico de la slide
     height: 1550     # alto lógico de la slide
     margin: 0
-    slide-number: true
+    slide-number: false
     scrollable: true
     css: ine_quarto_style_v2025_v2.css
 ---
