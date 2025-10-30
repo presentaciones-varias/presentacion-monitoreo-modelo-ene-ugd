@@ -51,6 +51,21 @@ format:
 ::: {.incremental .medium-par}
 - **La Encuesta Nacional de Empleo (ENE)** genera mes a mes glosas abiertas que deben ser clasificadas y que dan cuenta de las ocupaciones y actividad económica del mercado laboral del país. 
 - En su flujo de procesamiento, analistas de la ENE utilizan **codificación automática** para clasificar la ocupación (CIUO) y la rama de actividad económica (CAENES) de las personas, al nivel de desagregación de 1 y 2 dígitos.
+:::
+
+::: {.r-stack fragment-index=2 .center}
+
+![](imagenes/monitoring/ciuo_grupos.png){.fragment .fade-in-then-out fig-align="center" width="80%"}
+
+![](imagenes/monitoring/caenes_secciones.png){.fragment .fade-in-then-out fig-align="center" width="100%"}
+
+:::
+
+
+
+## [Motivación hacia el Monitoreo I]{.big-par}
+
+::: {.incremental .medium-par}
 - Cuatro **modelos de machine learning** han sido disponibilizados desde Ciencia de Datos para colaborar en esta tarea: 
   - **Modelo CIUO a 1 y 2 dígitos.**
   - **Modelo CAENES a 1 y 2 dígitos.**
@@ -93,7 +108,8 @@ format:
 ::: {.incremental .medium-par}
 - Solución: **monitoreo periódico y re-entrenamiento de los modelos**.
   - En el caso de la ENE, mes a mes analistas nos envían las glosas de ocupación y actividad económica correspondientes a los datos de la coyuntura mensual.
-  - Hacemos uso de estas glosas para implementar el monitoreo: **comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)**, evaluando la existencia de **data drift**. 
+  - Hacemos uso de estas glosas para implementar el monitoreo: 
+    - **comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)**, evaluando la existencia de **data drift**. 
 :::
 
 
@@ -112,42 +128,17 @@ format:
 
 ## [Model monitoring | Metrics | Definition]{.big-par}
 
-::: {.r-stack fragment-index=2 .center}
-
-![](imagenes/monitoring/monitoring_pipeline_stages_03.png){.fragment fig-align="center" width="50%"}
-
-:::
-
 ::: {.incremental .medium-par}
 - **Comparamos los dataset de producción (coyuntura) y de referencia (entrenamiento) aplicando múltiples métricas de drift**:
   - Algunas implementadas por la librería open-source [Evidently](https://docs.evidentlyai.com/metrics/customize_data_drift).
     - a nivel de cada clase (predicción / ground truth) y dataset.
   - Otras implementadas a medida, como proxy para estimar la incerteza y novedad de los registros.
     - a nivel de cada registro.
-- **Combinando las diferentes métricas obtenidas, calculamos una métrica única**.
-    - nos permite seleccionar un subconjunto de registros para ser enviado a revisión.
-- Las diferentes métricas calculadas se almacenan en **MinIO** como archivos **html, json, parquet**.
 :::
 
 
 
 ## [Model monitoring | Metrics | Definition]{.big-par}
-
-<!-- ::: {.small-par}
-
-| Test / Report                      | Evaluación | Nivel |
-|:-----------------------------------|:------------|:------------|
-| Test Suite                         | checks generales sobre columnas **oficio, tareas y actividad **(sólo CAENES)      |  dataset    |
-| Report Text Summary                | estadísticas generales (mean, std, etc.) sobre los descriptores **Text Length** y **Word Count** aplicados sobre las columnas **oficio, tareas y actividad **(sólo CAENES). | dataset |
-| Report Text Drift                  | drift sobre los descriptores **Text Length** y **Word Count** aplicados a las columnas **oficio, tareas y actividad** (sólo CAENES). <br> - **Text Length**: largo del texto en caracteres. <br>  - **Word Count**: número de palabras en el texto. | clase + dataset |
-| Report Embedding Drift             | drift en los **embeddings obtenidos para el dataset de producción y referencia**, a partir de los mismos word embeddings pre-entrenados usados en el entrenamiento del modelo. |  clase + dataset |
-| Report Prediction Drift            | drift en las **clases predichas por del modelo**. | dataset |
-| Report Prediction Drift vs Truth   | drift en las **clases predichas por del modelo en el dataset de producción** vs **classes verdaderas en el dataset de referencia**. | dataset |
-| Report Prediction Class Prob Drift | drift en las **probabilidades de las clases predichas por del modelo**. |  clase + dataset |
-| Report Drift Priority | priority score basado en **incerteza y novedad de las glosas**. | registro |
-: {tbl-colwidths="[25,55,20]"}
-
-::: -->
 
 ::: {.medium-par}
 
@@ -187,19 +178,11 @@ format:
 
 ::: {.incremental .medium-par}
 - **Cómo calculamos una única métrica a partir de las múltiples métricas aplicadas?**
-  - Usamos sumas ponderadas para combinar las métricas obtenidas a distintos niveles (registro, clase, dataset) y luego para obtener una métrica final de revisión.
-- **Record drift score:**
-  - Suma ponderada de métricas a nivel de registro: <br> uncertainty_score_norm, novelty_score_norm.
-- **Class drift score:**
-  - Suma ponderada de métricas a nivel de clase y dataset normalizadas (entre 0 y 1): <br> drift en descriptores de texto, embeddings, clases predichas, clases predichas vs verdaderas, probabilidades de las clases predichas.
-- **Revision score:**
-  - Suma ponderada de **record_drift_score** y **class_drift_score**.
-  - Nos permite seleccionar qué registros del periodo analizado (coyuntura) es importante revisar.
+  - Usamos sumas ponderadas para combinar las métricas obtenidas a distintos niveles (registro, clase, dataset) y luego para obtener una métrica final de revisión (**revision_score**).
 :::
 
+. . .
 
-
-## [Model monitoring | Metrics | Definition]{.big-par}
 ::: {.medium-par}
 
 | Metric | W | Metric | W | Metric
@@ -210,20 +193,22 @@ format:
 
 :::
 
+<br>
+
 
 
 ## [Model monitoring | Metrics | Validation]{.big-par}
 
 ::: {.incremental .medium-par}
-- **¿Cómo validamos las métricas calculadas?**
+- **¿Cómo validamos la métrica calculada (revision_score)?**
   - Seleccionamos un subconjunto de registros para cada periodo de interés (ej: coyunturas) para ser codificado por analistas expertos a uno y dos dígitos.
     - 100 registros para cada tipo de modelo: CIUO y CAENES.
-    - Cada selección contiene registros observados en los valores más bajos (*smaller*) y altos (*larger*) del **revision_score** en el periodo, ordenados aleatoriamente.
+    - Cada selección contiene 50 registros observados en los valores menores y mayores del **revision_score** en el periodo, ordenados aleatoriamente.
     - Distribución de clases (predichas) es la misma que en el dataset de producción del periodo.
-  - Dos analistas clasificarán el mismo subconjunto de registros seleccionados.
+  - Dos analistas clasifican el mismo subconjunto de registros seleccionados.
     - Permite contar con dos clasificaciones independientes y contrastarlas.
-  - Los analistas además responderían un par de preguntas que nos permitirán evaluar la **complejidad** y **novedad** de los registros, a partir de su conocimiento experto.
-    - **Q1. En relación a lo complejo que usualmente le es codificar un registro, ¿qué tan difícil fue clasificar este registro a dos dígitos?:**
+  - Los analistas además responden un par de preguntas que nos permitirán evaluar la **complejidad** y **novedad** de los registros, a partir de su conocimiento experto.
+    - **Q1. En relación a lo complejo que usualmente le es codificar un registro, ¿qué tan difícil fue clasificar este registro a dos dígitos?**
       - 1: Fue fácil.
       - 2: Fue medianamente difícil.
       - 3: Fue difícil.
@@ -238,14 +223,11 @@ format:
 ## [Model monitoring | Metrics | Validation]{.big-par}
 
 ::: {.incremental .medium-par}
-- **Cómo validamos las métricas calculadas?**
-  - Validación de métricas:
-    - Analizaremos cómo se correlacionan nuestras métricas con:
-      - La estimación de complejidad y novedad de los analistas.
-      - La clasificación realizada por los analistas.
-      - Análisis para una coyuntura hasta ahora: 2024-01.
-    - *Evaluaremos cómo evoluciona en el tiempo la performance de los modelos en base a la clasificación realizada por analistas.*
-      - *A partir de dicha evaluación, podremos estimar la frecuencia con que sería conveniente re-entrenar los modelos.*
+- **¿Cómo validamos la métrica calculada (revision_score)?**
+  - Analizaremos cómo se correlacionan nuestra métrica a 1 dígito con:
+    - La estimación de complejidad (Q1) y novedad (Q2) por parte de analistas.
+    - La clasificación realizada por los analistas.
+    - Análisis para una coyuntura hasta ahora: 2024-01.
 :::
 
 
@@ -253,7 +235,7 @@ format:
 ## [Model monitoring | Metrics | Results: Questions to analysts]{.big-par}
 
 ::: {.medium-par}
-**Q1: ... ¿qué tan difícil fue clasificar este registro a dos dígitos?
+**Q1: ... ¿qué tan difícil fue clasificar este registro?
 ** <br><br>
 **Q2: ... ¿qué tan parecido considera este registro a alguno que haya visto en el pasado?
 **
@@ -300,13 +282,13 @@ question = Q2, model = caenes
 ## [Model monitoring | Metrics | Results: Questions to analysts]{.big-par}
 
 ::: {.incremental .medium-par}
-- **Correlación entre nuestras métricas y estimación de complejidad (Q1) y novedad de los analistas (Q2).**
+- **Correlación entre nuestra métrica y estimación de complejidad (Q1) y novedad de los analistas (Q2).**
   - Q1: Tanto para modelo CIUO como CAENES, vemos en la región de **revision_score**:
-    - menor, registros en su gran mayoría fáciles de clasificar (86-98%) y muy pocos díficiles de clasificar (0-8%) para analistas.
-    - mayor, aumento en la proporción de registros díficiles de clasificar (12-34%) y disminución en registros fáciles de clasificar (40-76%) para analistas.
+    - **menor**, registros en su gran mayoría fáciles de clasificar (86-98%) y muy pocos díficiles de clasificar (0-8%) para analistas.
+    - **mayor**, aumento en la proporción de registros díficiles de clasificar (12-34%) y disminución en registros fáciles de clasificar (40-76%) para analistas.
   - Q2: Tanto para el modelo CIUO como CAENES, vemos en la región de **revision_score**:
-    - menor, registros que tienden a ser más *parecidos* (70-98%) comparado con los *algo parecidos* (2-30%) o *distintos* (0-8%) para analistas.
-    - mayor, aumento tanto de registros *distintos* (10-34%) como *algo parecidos* (16-62%) y disminución de registros *parecidos* (14-74%) para analistas.
+    - **menor**, registros que tienden a ser más *parecidos* (70-98%) comparado con los *algo parecidos* (2-30%) o *distintos* (0-8%) para analistas.
+    - **mayor**, aumento tanto de registros *distintos* (10-34%) como *algo parecidos* (16-62%) y disminución de registros *parecidos* (14-74%) para analistas.
   - **Menor evidencia de drift en registros se correlaciona con menor complejidad y novedad para analistas. ✅**
   - **Mayor evidencia de drift en registros se correlaciona parcialmente con mayor complejidad y novedad para analistas. ✅** 
 :::
@@ -316,14 +298,14 @@ question = Q2, model = caenes
 ::: {.medium-par}
 | Q | model | revision_score | codificador_1 (R1, R2, R3) | codificador_2 (R1, R2, R3) |
 |:--|:--|:--|:--|:--|
-| Q1 | ciuo | smaller | (46,  4, 0) &nbsp; = **(92, 8, 0) %** | (49, 1, 0) &nbsp; &nbsp; = **(98, 2, 0) %**  | 
-| Q1 | ciuo | larger | (26, 18, 6) = **(52, 36, 12) %**  | (27, 14, 9) &nbsp; = **(54, 28, 18) %**  | 
-| Q1 | caenes | smaller | (49, 1, 0) &nbsp; = **(98, 2, 0) %**  | (43, 3, 4) &nbsp; &nbsp; = **(86, 6, 8) %**  | 
-| Q1 | caenes | larger | (38, 5, 7) &nbsp; = **(76, 10, 14) %**  | (20, 8, 17) &nbsp; = **(40, 16, 34) %**  | 
-| Q2 | ciuo | smaller | (35, 15, 0) = **(70, 30, 0) %** | (49, 1, 0) &nbsp; &nbsp; = **(98, 2, 0) %**  | 
-| Q2 | ciuo | larger | (7, 31, 12) = **(14, 62, 24) %**  | (22, 20, 8) &nbsp; = **(44, 40, 16) %** | 
-| Q2 | caenes | smaller | (49, 1, 0) &nbsp; = **(98, 2, 0) %**  | (44, 2, 4) &nbsp; &nbsp; = **(88, 4, 8) %**  | 
-| Q2 | caenes | larger | (37, 8, 5) &nbsp; = **(74, 16, 10) %**  | (20, 8, 17) &nbsp; = **(40, 16, 34) %**  | 
+| Q1 | ciuo | menor | (46,  4, 0) &nbsp; = **(92, 8, 0) %** | (49, 1, 0) &nbsp; &nbsp; = **(98, 2, 0) %**  | 
+| Q1 | ciuo | mayor | (26, 18, 6) = **(52, 36, 12) %**  | (27, 14, 9) &nbsp; = **(54, 28, 18) %**  | 
+| Q1 | caenes | menor | (49, 1, 0) &nbsp; = **(98, 2, 0) %**  | (43, 3, 4) &nbsp; &nbsp; = **(86, 6, 8) %**  | 
+| Q1 | caenes | mayor | (38, 5, 7) &nbsp; = **(76, 10, 14) %**  | (20, 8, 17) &nbsp; = **(40, 16, 34) %**  | 
+| Q2 | ciuo | menor | (35, 15, 0) = **(70, 30, 0) %** | (49, 1, 0) &nbsp; &nbsp; = **(98, 2, 0) %**  | 
+| Q2 | ciuo | mayor | (7, 31, 12) = **(14, 62, 24) %**  | (22, 20, 8) &nbsp; = **(44, 40, 16) %** | 
+| Q2 | caenes | menor | (49, 1, 0) &nbsp; = **(98, 2, 0) %**  | (44, 2, 4) &nbsp; &nbsp; = **(88, 4, 8) %**  | 
+| Q2 | caenes | mayor | (37, 8, 5) &nbsp; = **(74, 16, 10) %**  | (20, 8, 17) &nbsp; = **(40, 16, 34) %**  | 
 : {tbl-colwidths="[10,10,15,25,25]"}
 :::
 
@@ -335,7 +317,7 @@ question = Q2, model = caenes
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = ciuo, revision_score = smaller, codificador 1. Acc = 0.98
+model = ciuo, revision_score = menor, codificador 1. Acc = 0.98
 
 ![](imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_smallest_codificador_1.png){fig-align="center" width="55%"}
 
@@ -343,7 +325,7 @@ model = ciuo, revision_score = smaller, codificador 1. Acc = 0.98
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = ciuo, revision_score = smaller, codificador 2. Acc = 1.0
+model = ciuo, revision_score = menor, codificador 2. Acc = 1.0
 
 ![](imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_smallest_codificador_2.png){fig-align="center" width="55%"}
 
@@ -351,7 +333,7 @@ model = ciuo, revision_score = smaller, codificador 2. Acc = 1.0
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = ciuo, revision_score = smaller, codificador 1 vs 2. Acc = 0.98
+model = ciuo, revision_score = menor, codificador 1 vs 2. Acc = 0.98
 
 ![](imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_smallest_codificador_1_vs_2.png){fig-align="center" width="55%"}
 
@@ -359,7 +341,7 @@ model = ciuo, revision_score = smaller, codificador 1 vs 2. Acc = 0.98
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = ciuo, revision_score = larger, codificador 1. Acc = 0.30
+model = ciuo, revision_score = mayor, codificador 1. Acc = 0.30
 
 ![](imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_largest_codificador_1.png){fig-align="center" width="55%"}
 
@@ -367,7 +349,7 @@ model = ciuo, revision_score = larger, codificador 1. Acc = 0.30
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = ciuo, revision_score = larger, codificador 2. Acc = 0.28
+model = ciuo, revision_score = mayor, codificador 2. Acc = 0.28
 
 ![](imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_largest_codificador_2.png){fig-align="center" width="55%"}
 
@@ -375,7 +357,7 @@ model = ciuo, revision_score = larger, codificador 2. Acc = 0.28
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = ciuo, revision_score = larger, codificador 1 vs 2. Acc = 0.74
+model = ciuo, revision_score = mayor, codificador 1 vs 2. Acc = 0.74
 
 ![](imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_largest_codificador_1_vs_2.png){fig-align="center" width="55%"}
 
@@ -383,7 +365,7 @@ model = ciuo, revision_score = larger, codificador 1 vs 2. Acc = 0.74
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = caenes, revision_score = smaller, codificador 1. Acc = 0.92
+model = caenes, revision_score = menor, codificador 1. Acc = 0.92
 
 ![](imagenes/results/confusion_matrix_model_caenes_202401_revision_score_smallest_codificador_1.png){fig-align="center" width="55%"}
 
@@ -391,7 +373,7 @@ model = caenes, revision_score = smaller, codificador 1. Acc = 0.92
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = caenes, revision_score = smaller, codificador 2. Acc = 0.94
+model = caenes, revision_score = menor, codificador 2. Acc = 0.94
 
 ![](imagenes/results/confusion_matrix_model_caenes_202401_revision_score_smallest_codificador_2.png){fig-align="center" width="55%"}
 
@@ -399,7 +381,7 @@ model = caenes, revision_score = smaller, codificador 2. Acc = 0.94
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = caenes, revision_score = smaller, codificador 1 vs 2. Acc = 0.94
+model = caenes, revision_score = menor, codificador 1 vs 2. Acc = 0.94
 
 ![](imagenes/results/confusion_matrix_model_caenes_202401_revision_score_smallest_codificador_1_vs_2.png){fig-align="center" width="55%"}
 
@@ -407,7 +389,7 @@ model = caenes, revision_score = smaller, codificador 1 vs 2. Acc = 0.94
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = caenes, revision_score = larger, codificador 1. Acc = 0.12
+model = caenes, revision_score = mayor, codificador 1. Acc = 0.12
 
 ![](imagenes/results/confusion_matrix_model_caenes_202401_revision_score_largest_codificador_1.png){fig-align="center" width="55%"}
 
@@ -415,7 +397,7 @@ model = caenes, revision_score = larger, codificador 1. Acc = 0.12
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = caenes, revision_score = larger, codificador 2. Acc = 0.12
+model = caenes, revision_score = mayor, codificador 2. Acc = 0.12
 
 ![](imagenes/results/confusion_matrix_model_caenes_202401_revision_score_largest_codificador_2.png){fig-align="center" width="55%"}
 
@@ -423,7 +405,7 @@ model = caenes, revision_score = larger, codificador 2. Acc = 0.12
 
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
-model = caenes, revision_score = larger, codificador 1 vs 2. Acc = 0.70
+model = caenes, revision_score = mayor, codificador 1 vs 2. Acc = 0.70
 
 ![](imagenes/results/confusion_matrix_model_caenes_202401_revision_score_largest_codificador_1_vs_2.png){fig-align="center" width="55%"}
 
@@ -432,31 +414,50 @@ model = caenes, revision_score = larger, codificador 1 vs 2. Acc = 0.70
 ## [Model monitoring | Metrics | Results: Analysts vs Model]{.big-par}
 
 ::: {.incremental .medium-par}
-- **Correlación entre nuestras métricas y clasificación realizada por los analistas.**
-  - Se observa un *accuracy* alto en la región de menor revision_score tanto para el modelo CIUO (0.98 - 1.0) como CAENES (0.92 - 0.94), con una alta concordancia entre clasificadores en ambos casos (0.98 y 0.94, respectivamente).
-  - El *accuracy* decae drásticamente en la región de mayor revision_score tanto para el modelo CIUO (0.28 - 0.30) como CAENES (0.12), con una concordancia entre clasificadores que decae en menor medida (0.74 y 0.70, respectivamente). 
+- **Correlación entre nuestras métrica y clasificación realizada por los analistas.**
+  - Se observa un *accuracy* alto en la región de menor **revision_score** tanto para el modelo CIUO (0.98 - 1.0) como CAENES (0.92 - 0.94), con una alta concordancia entre clasificadores en ambos casos (0.98 y 0.94, respectivamente).
+  - El *accuracy* decae drásticamente en la región de mayor **revision_score** tanto para el modelo CIUO (0.28 - 0.30) como CAENES (0.12), con una concordancia entre clasificadores que decae en menor medida (0.74 y 0.70, respectivamente). 
   - **Evidencia de drift se relaciona inversamente con la performance de los modelos e incluso con la concordancia entre analistas. ✅** 
 :::
 
 ::: {.medium-par}
 | model | revision_score | test | accuracy |
 |:--|:--|:--|:--|
-| ciuo | smaller | codificador 1 vs model | 0.98 | 
-| ciuo | smaller | codificador 2 vs model | 1.0 | 
-| ciuo | smaller | codificador 1 vs 2 | 0.98 |
-| ciuo | larger | codificador 1 vs model | 0.30 | 
-| ciuo | larger | codificador 2 vs model | 0.28 |
-| ciuo | larger | codificador 1 vs 2 | 0.74 |
-| caenes | smaller | codificador 1 vs model | 0.92 | 
-| caenes | smaller | codificador 2 vs model | 0.94 |
-| caenes | smaller | codificador 1 vs 2 | 0.94 |
-| caenes | larger | codificador 1 vs model | 0.12 |
-| caenes | larger | codificador 2 vs model | 0.12 |
-| caenes | larger | codificador 1 vs 2 | 0.70 |
+| ciuo | menor | codificador 1 vs model | 0.98 | 
+| ciuo | menor | codificador 2 vs model | 1.0 | 
+| ciuo | menor | codificador 1 vs 2 | 0.98 |
+| ciuo | mayor | codificador 1 vs model | 0.30 | 
+| ciuo | mayor | codificador 2 vs model | 0.28 |
+| ciuo | mayor | codificador 1 vs 2 | 0.74 |
+| caenes | menor | codificador 1 vs model | 0.92 | 
+| caenes | menor | codificador 2 vs model | 0.94 |
+| caenes | menor | codificador 1 vs 2 | 0.94 |
+| caenes | mayor | codificador 1 vs model | 0.12 |
+| caenes | mayor | codificador 2 vs model | 0.12 |
+| caenes | mayor | codificador 1 vs 2 | 0.70 |
 : {tbl-colwidths="[25,25,35,15]"}
 :::
 
 <br>
+
+
+
+## [Conclusion]{.big-par}
+
+::: {.incremental .medium-par}
+- Al menos para la coyuntura 2024-01, validamos satisfactoriamente nuestra métrica de drift:
+  - **Menor evidencia de drift en registros se correlaciona con menor complejidad y novedad para analistas. ✅**
+  - **Mayor evidencia de drift en registros se correlaciona parcialmente con mayor complejidad y novedad para analistas. ✅** 
+  - **Evidencia de drift se relaciona inversamente con la performance de los modelos e incluso con la concordancia entre analistas. ✅**
+<br><br>
+- Trabajo hasta diciembre 2025:
+  - **Comprobar validación para siguientes dos coyunturas (2024-02 y 2024-03).** 
+<br><br>
+- Trabajo desde enero 2026:
+  - **Evaluaremos cómo evoluciona en el tiempo la performance de los modelos en base a la clasificación realizada por analistas.**
+    - **A partir de dicha evaluación, podremos definir la frecuencia y la forma en que sería conveniente re-entrenar los modelos.**
+:::
+
 
 
 ## { .portada #cierre}
@@ -485,7 +486,8 @@ model = caenes, revision_score = larger, codificador 1 vs 2. Acc = 0.70
   - **Cambios en la distribución** (*data drift*) ocurren cuando los datos en producción difieren de los datos de entrenamiento utilizados para construir el modelo.
 - Solución: **monitoreo periódico y re-entrenamiento de los modelos**.
   - En el caso de la ENE, mes a mes analistas nos envían las glosas de ocupación y actividad económica correspondientes a los datos de la coyuntura mensual.
-  - Hacemos uso de estas glosas para implementar el monitoreo: **comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)**, evaluando la existencia de **data drift**. 
+  - Hacemos uso de estas glosas para implementar el monitoreo: 
+    - **comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)**, evaluando la existencia de **data drift**. 
 :::
 
 
@@ -657,6 +659,22 @@ model = caenes, revision_score = larger, codificador 1 vs 2. Acc = 0.70
 
 ::: {.center}
 [Veamos el dashboard](http://10.90.10.60:8050/)
+:::
+
+
+
+## [Model monitoring | Metrics | Definition]{.big-par}
+
+::: {.incremental .medium-par}
+- **Cómo calculamos una única métrica a partir de las múltiples métricas aplicadas?**
+  - Usamos sumas ponderadas para combinar las métricas obtenidas a distintos niveles (registro, clase, dataset) y luego para obtener una métrica final de revisión.
+- **Record drift score:**
+  - Suma ponderada de métricas a nivel de registro: <br> uncertainty_score_norm, novelty_score_norm.
+- **Class drift score:**
+  - Suma ponderada de métricas a nivel de clase y dataset normalizadas (entre 0 y 1): <br> drift en descriptores de texto, embeddings, clases predichas, clases predichas vs verdaderas, probabilidades de las clases predichas.
+- **Revision score:**
+  - Suma ponderada de **record_drift_score** y **class_drift_score**.
+  - Nos permite seleccionar qué registros del periodo analizado (coyuntura) es importante revisar.
 :::
 
 

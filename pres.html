@@ -168,6 +168,25 @@ Unidad de Gobierno de Datos
 <ul>
 <li class="fragment"><strong>La Encuesta Nacional de Empleo (ENE)</strong> genera mes a mes glosas abiertas que deben ser clasificadas y que dan cuenta de las ocupaciones y actividad económica del mercado laboral del país.</li>
 <li class="fragment">En su flujo de procesamiento, analistas de la ENE utilizan <strong>codificación automática</strong> para clasificar la ocupación (CIUO) y la rama de actividad económica (CAENES) de las personas, al nivel de desagregación de 1 y 2 dígitos.</li>
+</ul>
+</div>
+<div class="r-stack center" data-fragment-index="2">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="imagenes/monitoring/ciuo_grupos.png" class="fragment fade-in-then-out quarto-figure quarto-figure-center" style="width:80.0%"></p>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="imagenes/monitoring/caenes_secciones.png" class="fragment fade-in-then-out quarto-figure quarto-figure-center" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</section>
+<section id="motivación-hacia-el-monitoreo-i-1" class="slide level2">
+<h2><span class="big-par">Motivación hacia el Monitoreo I</span></h2>
+<div class="medium-par">
+<ul>
 <li class="fragment">Cuatro <strong>modelos de machine learning</strong> han sido disponibilizados desde Ciencia de Datos para colaborar en esta tarea:
 <ul>
 <li class="fragment"><strong>Modelo CIUO a 1 y 2 dígitos.</strong></li>
@@ -211,7 +230,10 @@ Unidad de Gobierno de Datos
 <li class="fragment">Solución: <strong>monitoreo periódico y re-entrenamiento de los modelos</strong>.
 <ul>
 <li class="fragment">En el caso de la ENE, mes a mes analistas nos envían las glosas de ocupación y actividad económica correspondientes a los datos de la coyuntura mensual.</li>
-<li class="fragment">Hacemos uso de estas glosas para implementar el monitoreo: <strong>comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)</strong>, evaluando la existencia de <strong>data drift</strong>.</li>
+<li class="fragment">Hacemos uso de estas glosas para implementar el monitoreo:
+<ul>
+<li class="fragment"><strong>comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)</strong>, evaluando la existencia de <strong>data drift</strong>.</li>
+</ul></li>
 </ul></li>
 </ul>
 </div>
@@ -233,13 +255,6 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-definition" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Definition</span></h2>
-<div class="r-stack center" data-fragment-index="2">
-<div class="quarto-figure quarto-figure-center">
-<figure>
-<p><img data-src="imagenes/monitoring/monitoring_pipeline_stages_03.png" class="fragment quarto-figure quarto-figure-center" style="width:50.0%"></p>
-</figure>
-</div>
-</div>
 <div class="medium-par">
 <ul>
 <li class="fragment"><strong>Comparamos los dataset de producción (coyuntura) y de referencia (entrenamiento) aplicando múltiples métricas de drift</strong>:
@@ -253,31 +268,11 @@ Unidad de Gobierno de Datos
 <li class="fragment">a nivel de cada registro.</li>
 </ul></li>
 </ul></li>
-<li class="fragment"><strong>Combinando las diferentes métricas obtenidas, calculamos una métrica única</strong>.
-<ul>
-<li class="fragment">nos permite seleccionar un subconjunto de registros para ser enviado a revisión.</li>
-</ul></li>
-<li class="fragment">Las diferentes métricas calculadas se almacenan en <strong>MinIO</strong> como archivos <strong>html, json, parquet</strong>.</li>
 </ul>
 </div>
 </section>
 <section id="model-monitoring-metrics-definition-1" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Definition</span></h2>
-<!-- ::: {.small-par}
-
-| Test / Report                      | Evaluación | Nivel |
-|:-----------------------------------|:------------|:------------|
-| Test Suite                         | checks generales sobre columnas **oficio, tareas y actividad **(sólo CAENES)      |  dataset    |
-| Report Text Summary                | estadísticas generales (mean, std, etc.) sobre los descriptores **Text Length** y **Word Count** aplicados sobre las columnas **oficio, tareas y actividad **(sólo CAENES). | dataset |
-| Report Text Drift                  | drift sobre los descriptores **Text Length** y **Word Count** aplicados a las columnas **oficio, tareas y actividad** (sólo CAENES). <br> - **Text Length**: largo del texto en caracteres. <br>  - **Word Count**: número de palabras en el texto. | clase + dataset |
-| Report Embedding Drift             | drift en los **embeddings obtenidos para el dataset de producción y referencia**, a partir de los mismos word embeddings pre-entrenados usados en el entrenamiento del modelo. |  clase + dataset |
-| Report Prediction Drift            | drift en las **clases predichas por del modelo**. | dataset |
-| Report Prediction Drift vs Truth   | drift en las **clases predichas por del modelo en el dataset de producción** vs **classes verdaderas en el dataset de referencia**. | dataset |
-| Report Prediction Class Prob Drift | drift en las **probabilidades de las clases predichas por del modelo**. |  clase + dataset |
-| Report Drift Priority | priority score basado en **incerteza y novedad de las glosas**. | registro |
-: {tbl-colwidths="[25,55,20]"}
-
-::: -->
 <div class="medium-par">
 <table class="caption-top">
 <colgroup>
@@ -392,26 +387,11 @@ Unidad de Gobierno de Datos
 <ul>
 <li class="fragment"><strong>Cómo calculamos una única métrica a partir de las múltiples métricas aplicadas?</strong>
 <ul>
-<li class="fragment">Usamos sumas ponderadas para combinar las métricas obtenidas a distintos niveles (registro, clase, dataset) y luego para obtener una métrica final de revisión.</li>
-</ul></li>
-<li class="fragment"><strong>Record drift score:</strong>
-<ul>
-<li class="fragment">Suma ponderada de métricas a nivel de registro: <br> uncertainty_score_norm, novelty_score_norm.</li>
-</ul></li>
-<li class="fragment"><strong>Class drift score:</strong>
-<ul>
-<li class="fragment">Suma ponderada de métricas a nivel de clase y dataset normalizadas (entre 0 y 1): <br> drift en descriptores de texto, embeddings, clases predichas, clases predichas vs verdaderas, probabilidades de las clases predichas.</li>
-</ul></li>
-<li class="fragment"><strong>Revision score:</strong>
-<ul>
-<li class="fragment">Suma ponderada de <strong>record_drift_score</strong> y <strong>class_drift_score</strong>.</li>
-<li class="fragment">Nos permite seleccionar qué registros del periodo analizado (coyuntura) es importante revisar.</li>
+<li class="fragment">Usamos sumas ponderadas para combinar las métricas obtenidas a distintos niveles (registro, clase, dataset) y luego para obtener una métrica final de revisión (<strong>revision_score</strong>).</li>
 </ul></li>
 </ul>
 </div>
-</section>
-<section id="model-monitoring-metrics-definition-4" class="slide level2">
-<h2><span class="big-par">Model monitoring | Metrics | Definition</span></h2>
+<div class="fragment">
 <div class="medium-par">
 <table class="caption-top">
 <colgroup>
@@ -448,26 +428,28 @@ Unidad de Gobierno de Datos
 </tbody>
 </table>
 </div>
+<p><br></p>
+</div>
 </section>
 <section id="model-monitoring-metrics-validation" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Validation</span></h2>
 <div class="medium-par">
 <ul>
-<li class="fragment"><strong>¿Cómo validamos las métricas calculadas?</strong>
+<li class="fragment"><strong>¿Cómo validamos la métrica calculada (revision_score)?</strong>
 <ul>
 <li class="fragment">Seleccionamos un subconjunto de registros para cada periodo de interés (ej: coyunturas) para ser codificado por analistas expertos a uno y dos dígitos.
 <ul>
 <li class="fragment">100 registros para cada tipo de modelo: CIUO y CAENES.</li>
-<li class="fragment">Cada selección contiene registros observados en los valores más bajos (<em>smaller</em>) y altos (<em>larger</em>) del <strong>revision_score</strong> en el periodo, ordenados aleatoriamente.</li>
+<li class="fragment">Cada selección contiene 50 registros observados en los valores menores y mayores del <strong>revision_score</strong> en el periodo, ordenados aleatoriamente.</li>
 <li class="fragment">Distribución de clases (predichas) es la misma que en el dataset de producción del periodo.</li>
 </ul></li>
-<li class="fragment">Dos analistas clasificarán el mismo subconjunto de registros seleccionados.
+<li class="fragment">Dos analistas clasifican el mismo subconjunto de registros seleccionados.
 <ul>
 <li class="fragment">Permite contar con dos clasificaciones independientes y contrastarlas.</li>
 </ul></li>
-<li class="fragment">Los analistas además responderían un par de preguntas que nos permitirán evaluar la <strong>complejidad</strong> y <strong>novedad</strong> de los registros, a partir de su conocimiento experto.
+<li class="fragment">Los analistas además responden un par de preguntas que nos permitirán evaluar la <strong>complejidad</strong> y <strong>novedad</strong> de los registros, a partir de su conocimiento experto.
 <ul>
-<li class="fragment"><strong>Q1. En relación a lo complejo que usualmente le es codificar un registro, ¿qué tan difícil fue clasificar este registro a dos dígitos?:</strong>
+<li class="fragment"><strong>Q1. En relación a lo complejo que usualmente le es codificar un registro, ¿qué tan difícil fue clasificar este registro a dos dígitos?</strong>
 <ul>
 <li class="fragment">1: Fue fácil.</li>
 <li class="fragment">2: Fue medianamente difícil.</li>
@@ -488,20 +470,13 @@ Unidad de Gobierno de Datos
 <h2><span class="big-par">Model monitoring | Metrics | Validation</span></h2>
 <div class="medium-par">
 <ul>
-<li class="fragment"><strong>Cómo validamos las métricas calculadas?</strong>
+<li class="fragment"><strong>¿Cómo validamos la métrica calculada (revision_score)?</strong>
 <ul>
-<li class="fragment">Validación de métricas:
+<li class="fragment">Analizaremos cómo se correlacionan nuestra métrica a 1 dígito con:
 <ul>
-<li class="fragment">Analizaremos cómo se correlacionan nuestras métricas con:
-<ul>
-<li class="fragment">La estimación de complejidad y novedad de los analistas.</li>
+<li class="fragment">La estimación de complejidad (Q1) y novedad (Q2) por parte de analistas.</li>
 <li class="fragment">La clasificación realizada por los analistas.</li>
 <li class="fragment">Análisis para una coyuntura hasta ahora: 2024-01.</li>
-</ul></li>
-<li class="fragment"><em>Evaluaremos cómo evoluciona en el tiempo la performance de los modelos en base a la clasificación realizada por analistas.</em>
-<ul>
-<li class="fragment"><em>A partir de dicha evaluación, podremos estimar la frecuencia con que sería conveniente re-entrenar los modelos.</em></li>
-</ul></li>
 </ul></li>
 </ul></li>
 </ul>
@@ -510,7 +485,7 @@ Unidad de Gobierno de Datos
 <section id="model-monitoring-metrics-results-questions-to-analysts" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Questions to analysts</span></h2>
 <div class="medium-par">
-<p><strong>Q1: … ¿qué tan difícil fue clasificar este registro a dos dígitos? </strong> <br><br> <strong>Q2: … ¿qué tan parecido considera este registro a alguno que haya visto en el pasado? </strong></p>
+<p><strong>Q1: … ¿qué tan difícil fue clasificar este registro? </strong> <br><br> <strong>Q2: … ¿qué tan parecido considera este registro a alguno que haya visto en el pasado? </strong></p>
 </div>
 <p><br></p>
 <div class="quarto-figure quarto-figure-center">
@@ -559,17 +534,17 @@ Unidad de Gobierno de Datos
 <h2><span class="big-par">Model monitoring | Metrics | Results: Questions to analysts</span></h2>
 <div class="medium-par">
 <ul>
-<li class="fragment"><strong>Correlación entre nuestras métricas y estimación de complejidad (Q1) y novedad de los analistas (Q2).</strong>
+<li class="fragment"><strong>Correlación entre nuestra métrica y estimación de complejidad (Q1) y novedad de los analistas (Q2).</strong>
 <ul>
 <li class="fragment">Q1: Tanto para modelo CIUO como CAENES, vemos en la región de <strong>revision_score</strong>:
 <ul>
-<li class="fragment">menor, registros en su gran mayoría fáciles de clasificar (86-98%) y muy pocos díficiles de clasificar (0-8%) para analistas.</li>
-<li class="fragment">mayor, aumento en la proporción de registros díficiles de clasificar (12-34%) y disminución en registros fáciles de clasificar (40-76%) para analistas.</li>
+<li class="fragment"><strong>menor</strong>, registros en su gran mayoría fáciles de clasificar (86-98%) y muy pocos díficiles de clasificar (0-8%) para analistas.</li>
+<li class="fragment"><strong>mayor</strong>, aumento en la proporción de registros díficiles de clasificar (12-34%) y disminución en registros fáciles de clasificar (40-76%) para analistas.</li>
 </ul></li>
 <li class="fragment">Q2: Tanto para el modelo CIUO como CAENES, vemos en la región de <strong>revision_score</strong>:
 <ul>
-<li class="fragment">menor, registros que tienden a ser más <em>parecidos</em> (70-98%) comparado con los <em>algo parecidos</em> (2-30%) o <em>distintos</em> (0-8%) para analistas.</li>
-<li class="fragment">mayor, aumento tanto de registros <em>distintos</em> (10-34%) como <em>algo parecidos</em> (16-62%) y disminución de registros <em>parecidos</em> (14-74%) para analistas.</li>
+<li class="fragment"><strong>menor</strong>, registros que tienden a ser más <em>parecidos</em> (70-98%) comparado con los <em>algo parecidos</em> (2-30%) o <em>distintos</em> (0-8%) para analistas.</li>
+<li class="fragment"><strong>mayor</strong>, aumento tanto de registros <em>distintos</em> (10-34%) como <em>algo parecidos</em> (16-62%) y disminución de registros <em>parecidos</em> (14-74%) para analistas.</li>
 </ul></li>
 <li class="fragment"><strong>Menor evidencia de drift en registros se correlaciona con menor complejidad y novedad para analistas. ✅</strong></li>
 <li class="fragment"><strong>Mayor evidencia de drift en registros se correlaciona parcialmente con mayor complejidad y novedad para analistas. ✅</strong></li>
@@ -599,56 +574,56 @@ Unidad de Gobierno de Datos
 <tr class="odd">
 <td style="text-align: left;">Q1</td>
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">(46, 4, 0) &nbsp; = <strong>(92, 8, 0) %</strong></td>
 <td style="text-align: left;">(49, 1, 0) &nbsp; &nbsp; = <strong>(98, 2, 0) %</strong></td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Q1</td>
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">(26, 18, 6) = <strong>(52, 36, 12) %</strong></td>
 <td style="text-align: left;">(27, 14, 9) &nbsp; = <strong>(54, 28, 18) %</strong></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Q1</td>
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">(49, 1, 0) &nbsp; = <strong>(98, 2, 0) %</strong></td>
 <td style="text-align: left;">(43, 3, 4) &nbsp; &nbsp; = <strong>(86, 6, 8) %</strong></td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Q1</td>
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">(38, 5, 7) &nbsp; = <strong>(76, 10, 14) %</strong></td>
 <td style="text-align: left;">(20, 8, 17) &nbsp; = <strong>(40, 16, 34) %</strong></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Q2</td>
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">(35, 15, 0) = <strong>(70, 30, 0) %</strong></td>
 <td style="text-align: left;">(49, 1, 0) &nbsp; &nbsp; = <strong>(98, 2, 0) %</strong></td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Q2</td>
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">(7, 31, 12) = <strong>(14, 62, 24) %</strong></td>
 <td style="text-align: left;">(22, 20, 8) &nbsp; = <strong>(44, 40, 16) %</strong></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Q2</td>
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">(49, 1, 0) &nbsp; = <strong>(98, 2, 0) %</strong></td>
 <td style="text-align: left;">(44, 2, 4) &nbsp; &nbsp; = <strong>(88, 4, 8) %</strong></td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Q2</td>
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">(37, 8, 5) &nbsp; = <strong>(74, 16, 10) %</strong></td>
 <td style="text-align: left;">(20, 8, 17) &nbsp; = <strong>(40, 16, 34) %</strong></td>
 </tr>
@@ -664,7 +639,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = ciuo, revision_score = smaller, codificador 1. Acc = 0.98</p>
+<p>model = ciuo, revision_score = menor, codificador 1. Acc = 0.98</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_smallest_codificador_1.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -673,7 +648,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-1" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = ciuo, revision_score = smaller, codificador 2. Acc = 1.0</p>
+<p>model = ciuo, revision_score = menor, codificador 2. Acc = 1.0</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_smallest_codificador_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -682,7 +657,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-2" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = ciuo, revision_score = smaller, codificador 1 vs 2. Acc = 0.98</p>
+<p>model = ciuo, revision_score = menor, codificador 1 vs 2. Acc = 0.98</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_smallest_codificador_1_vs_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -691,7 +666,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-3" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = ciuo, revision_score = larger, codificador 1. Acc = 0.30</p>
+<p>model = ciuo, revision_score = mayor, codificador 1. Acc = 0.30</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_largest_codificador_1.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -700,7 +675,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-4" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = ciuo, revision_score = larger, codificador 2. Acc = 0.28</p>
+<p>model = ciuo, revision_score = mayor, codificador 2. Acc = 0.28</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_largest_codificador_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -709,7 +684,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-5" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = ciuo, revision_score = larger, codificador 1 vs 2. Acc = 0.74</p>
+<p>model = ciuo, revision_score = mayor, codificador 1 vs 2. Acc = 0.74</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_ciuo_202401_revision_score_largest_codificador_1_vs_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -718,7 +693,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-6" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = caenes, revision_score = smaller, codificador 1. Acc = 0.92</p>
+<p>model = caenes, revision_score = menor, codificador 1. Acc = 0.92</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_caenes_202401_revision_score_smallest_codificador_1.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -727,7 +702,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-7" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = caenes, revision_score = smaller, codificador 2. Acc = 0.94</p>
+<p>model = caenes, revision_score = menor, codificador 2. Acc = 0.94</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_caenes_202401_revision_score_smallest_codificador_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -736,7 +711,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-8" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = caenes, revision_score = smaller, codificador 1 vs 2. Acc = 0.94</p>
+<p>model = caenes, revision_score = menor, codificador 1 vs 2. Acc = 0.94</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_caenes_202401_revision_score_smallest_codificador_1_vs_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -745,7 +720,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-9" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = caenes, revision_score = larger, codificador 1. Acc = 0.12</p>
+<p>model = caenes, revision_score = mayor, codificador 1. Acc = 0.12</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_caenes_202401_revision_score_largest_codificador_1.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -754,7 +729,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-10" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = caenes, revision_score = larger, codificador 2. Acc = 0.12</p>
+<p>model = caenes, revision_score = mayor, codificador 2. Acc = 0.12</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_caenes_202401_revision_score_largest_codificador_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -763,7 +738,7 @@ Unidad de Gobierno de Datos
 </section>
 <section id="model-monitoring-metrics-results-analysts-vs-model-11" class="slide level2">
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
-<p>model = caenes, revision_score = larger, codificador 1 vs 2. Acc = 0.70</p>
+<p>model = caenes, revision_score = mayor, codificador 1 vs 2. Acc = 0.70</p>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="imagenes/results/confusion_matrix_model_caenes_202401_revision_score_largest_codificador_1_vs_2.png" class="quarto-figure quarto-figure-center" style="width:55.0%"></p>
@@ -774,10 +749,10 @@ Unidad de Gobierno de Datos
 <h2><span class="big-par">Model monitoring | Metrics | Results: Analysts vs Model</span></h2>
 <div class="medium-par">
 <ul>
-<li class="fragment"><strong>Correlación entre nuestras métricas y clasificación realizada por los analistas.</strong>
+<li class="fragment"><strong>Correlación entre nuestras métrica y clasificación realizada por los analistas.</strong>
 <ul>
-<li class="fragment">Se observa un <em>accuracy</em> alto en la región de menor revision_score tanto para el modelo CIUO (0.98 - 1.0) como CAENES (0.92 - 0.94), con una alta concordancia entre clasificadores en ambos casos (0.98 y 0.94, respectivamente).</li>
-<li class="fragment">El <em>accuracy</em> decae drásticamente en la región de mayor revision_score tanto para el modelo CIUO (0.28 - 0.30) como CAENES (0.12), con una concordancia entre clasificadores que decae en menor medida (0.74 y 0.70, respectivamente).</li>
+<li class="fragment">Se observa un <em>accuracy</em> alto en la región de menor <strong>revision_score</strong> tanto para el modelo CIUO (0.98 - 1.0) como CAENES (0.92 - 0.94), con una alta concordancia entre clasificadores en ambos casos (0.98 y 0.94, respectivamente).</li>
+<li class="fragment">El <em>accuracy</em> decae drásticamente en la región de mayor <strong>revision_score</strong> tanto para el modelo CIUO (0.28 - 0.30) como CAENES (0.12), con una concordancia entre clasificadores que decae en menor medida (0.74 y 0.70, respectivamente).</li>
 <li class="fragment"><strong>Evidencia de drift se relaciona inversamente con la performance de los modelos e incluso con la concordancia entre analistas. ✅</strong></li>
 </ul></li>
 </ul>
@@ -801,73 +776,73 @@ Unidad de Gobierno de Datos
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">codificador 1 vs model</td>
 <td style="text-align: left;">0.98</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">codificador 2 vs model</td>
 <td style="text-align: left;">1.0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">codificador 1 vs 2</td>
 <td style="text-align: left;">0.98</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">codificador 1 vs model</td>
 <td style="text-align: left;">0.30</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">codificador 2 vs model</td>
 <td style="text-align: left;">0.28</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">ciuo</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">codificador 1 vs 2</td>
 <td style="text-align: left;">0.74</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">codificador 1 vs model</td>
 <td style="text-align: left;">0.92</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">codificador 2 vs model</td>
 <td style="text-align: left;">0.94</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">smaller</td>
+<td style="text-align: left;">menor</td>
 <td style="text-align: left;">codificador 1 vs 2</td>
 <td style="text-align: left;">0.94</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">codificador 1 vs model</td>
 <td style="text-align: left;">0.12</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">codificador 2 vs model</td>
 <td style="text-align: left;">0.12</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">caenes</td>
-<td style="text-align: left;">larger</td>
+<td style="text-align: left;">mayor</td>
 <td style="text-align: left;">codificador 1 vs 2</td>
 <td style="text-align: left;">0.70</td>
 </tr>
@@ -875,6 +850,30 @@ Unidad de Gobierno de Datos
 </table>
 </div>
 <p><br></p>
+</section>
+<section id="conclusion" class="slide level2">
+<h2><span class="big-par">Conclusion</span></h2>
+<div class="medium-par">
+<ul>
+<li class="fragment">Al menos para la coyuntura 2024-01, validamos satisfactoriamente nuestra métrica de drift:
+<ul>
+<li class="fragment"><strong>Menor evidencia de drift en registros se correlaciona con menor complejidad y novedad para analistas. ✅</strong></li>
+<li class="fragment"><strong>Mayor evidencia de drift en registros se correlaciona parcialmente con mayor complejidad y novedad para analistas. ✅</strong></li>
+<li class="fragment"><strong>Evidencia de drift se relaciona inversamente con la performance de los modelos e incluso con la concordancia entre analistas. ✅</strong> <br><br></li>
+</ul></li>
+<li class="fragment">Trabajo hasta diciembre 2025:
+<ul>
+<li class="fragment"><strong>Comprobar validación para siguientes dos coyunturas (2024-02 y 2024-03).</strong> <br><br></li>
+</ul></li>
+<li class="fragment">Trabajo desde enero 2026:
+<ul>
+<li class="fragment"><strong>Evaluaremos cómo evoluciona en el tiempo la performance de los modelos en base a la clasificación realizada por analistas.</strong>
+<ul>
+<li class="fragment"><strong>A partir de dicha evaluación, podremos definir la frecuencia y la forma en que sería conveniente re-entrenar los modelos.</strong></li>
+</ul></li>
+</ul></li>
+</ul>
+</div>
 </section>
 <section id="cierre" class="slide level2 portada">
 <h2></h2>
@@ -906,7 +905,10 @@ Unidad de Gobierno de Datos
 <li class="fragment">Solución: <strong>monitoreo periódico y re-entrenamiento de los modelos</strong>.
 <ul>
 <li class="fragment">En el caso de la ENE, mes a mes analistas nos envían las glosas de ocupación y actividad económica correspondientes a los datos de la coyuntura mensual.</li>
-<li class="fragment">Hacemos uso de estas glosas para implementar el monitoreo: <strong>comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)</strong>, evaluando la existencia de <strong>data drift</strong>.</li>
+<li class="fragment">Hacemos uso de estas glosas para implementar el monitoreo:
+<ul>
+<li class="fragment"><strong>comparando el nuevo dataset mensual (producción) versus el usado para entrenar los modelos (referencia)</strong>, evaluando la existencia de <strong>data drift</strong>.</li>
+</ul></li>
 </ul></li>
 </ul>
 </div>
@@ -1109,6 +1111,30 @@ Unidad de Gobierno de Datos
 </div>
 </div>
 </section>
+<section id="model-monitoring-metrics-definition-4" class="slide level2">
+<h2><span class="big-par">Model monitoring | Metrics | Definition</span></h2>
+<div class="medium-par">
+<ul>
+<li class="fragment"><strong>Cómo calculamos una única métrica a partir de las múltiples métricas aplicadas?</strong>
+<ul>
+<li class="fragment">Usamos sumas ponderadas para combinar las métricas obtenidas a distintos niveles (registro, clase, dataset) y luego para obtener una métrica final de revisión.</li>
+</ul></li>
+<li class="fragment"><strong>Record drift score:</strong>
+<ul>
+<li class="fragment">Suma ponderada de métricas a nivel de registro: <br> uncertainty_score_norm, novelty_score_norm.</li>
+</ul></li>
+<li class="fragment"><strong>Class drift score:</strong>
+<ul>
+<li class="fragment">Suma ponderada de métricas a nivel de clase y dataset normalizadas (entre 0 y 1): <br> drift en descriptores de texto, embeddings, clases predichas, clases predichas vs verdaderas, probabilidades de las clases predichas.</li>
+</ul></li>
+<li class="fragment"><strong>Revision score:</strong>
+<ul>
+<li class="fragment">Suma ponderada de <strong>record_drift_score</strong> y <strong>class_drift_score</strong>.</li>
+<li class="fragment">Nos permite seleccionar qué registros del periodo analizado (coyuntura) es importante revisar.</li>
+</ul></li>
+</ul>
+</div>
+</section>
 <section id="apéndice-model-monitoring-metrics" class="slide level2">
 <h2><span class="big-par">Apéndice | Model monitoring | Metrics</span></h2>
 <div class="medium-par">
@@ -1134,7 +1160,7 @@ Unidad de Gobierno de Datos
 <li class="fragment"><strong>1) Wasserstein distance</strong>: estimación.</li>
 </ul>
 </div>
-<div class="r-stack quarto-layout-panel" data-fragment-index="2" data-layout-ncol="2">
+<div class="r-stack quarto-layout-panel" data-layout-ncol="2" data-fragment-index="2">
 <div class="quarto-layout-row">
 <div class="quarto-layout-cell" style="flex-basis: 46.2%;justify-content: center;">
 <div class="quarto-figure quarto-figure-center">
@@ -1179,7 +1205,7 @@ Unidad de Gobierno de Datos
 <li class="fragment"><strong>2) Kolmogorov–Smirnov (K-S) test</strong>: estimación.</li>
 </ul>
 </div>
-<div class="r-stack quarto-layout-panel" data-fragment-index="2" data-layout-ncol="2">
+<div class="r-stack quarto-layout-panel" data-layout-ncol="2" data-fragment-index="2">
 <div class="quarto-layout-row">
 <div class="quarto-layout-cell" style="flex-basis: 45.5%;justify-content: center;">
 <div class="quarto-figure quarto-figure-center">
@@ -1222,7 +1248,7 @@ Unidad de Gobierno de Datos
 <li class="fragment"><strong>3) Jensen-Shannon distance</strong>: estimación.</li>
 </ul>
 </div>
-<div class="r-stack quarto-layout-panel" data-fragment-index="2" data-layout-ncol="2">
+<div class="r-stack quarto-layout-panel" data-layout-ncol="2" data-fragment-index="2">
 <div class="quarto-layout-row">
 <div class="quarto-layout-cell" style="flex-basis: 46.7%;justify-content: center;">
 <div class="quarto-figure quarto-figure-center">
